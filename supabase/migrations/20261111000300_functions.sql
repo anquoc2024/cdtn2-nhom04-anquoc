@@ -208,8 +208,26 @@ begin
   return private.booking_json(b);
 end $$;
 
+-- ================================================================ 3. cancel_my_booking (FR08, UC08, BR06a)
+create or replace function public.cancel_my_booking(p_booking_id bigint, p_reason text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare b public.bookings;
+begin
+  if auth.uid() is null then raise exception 'NOT_AUTHENTICATED'; end if;
+  if char_length(btrim(coalesce(p_reason, ''))) = 0 then raise exception 'REASON_REQUIRED'; end if;
+  select * into b from public.bookings where id = p_booking_id and user_id = auth.uid() for update;
+  if b.id is null then raise exception 'NOT_FOUND'; end if;
+  if b.status not in ('pending', 'confirmed') or b.start_at - now() < interval '2 hours' then
+    raise exception 'CANNOT_CANCEL';
+  end if;
+  update public.bookings set status = 'cancelled', reason = left(btrim(p_reason), 300)
+   where id = b.id returning * into b;
+  return private.booking_json(b);
+end $$;
+
 -- ================================================================ quyền gọi hàm
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_admin(), public.is_active_user() to anon, authenticated;
 grant execute on function public.get_free_slots(date, bigint[], bigint) to anon, authenticated;
-grant execute on function public.create_booking(bigint[], bigint, timestamptz, text) to authenticated;
+grant execute on function public.create_booking(bigint[], bigint, timestamptz, text),
+                          public.cancel_my_booking(bigint, text) to authenticated;
