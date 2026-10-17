@@ -85,6 +85,56 @@ begin
   if private.slot_remaining(p_start, p_end, p_exclude) <= 0 then raise exception 'SLOT_FULL'; end if;
 end $$;
 
+-- Khóa theo ngày hẹn để hai người đặt cùng lúc không vượt số chỗ (NFR04)
+create or replace function private.lock_day(p_start timestamptz)
+returns void language sql security definer set search_path = public as $$
+  select pg_advisory_xact_lock(hashtext('nailcare-booking-' || ((p_start at time zone private.tz())::date)::text));
+$$;
+
+-- Mã lịch hẹn NC-YYYYMMDD-NNN theo ngày hẹn (BR.DL.1.5); gọi sau lock_day
+create or replace function private.next_booking_code(p_start timestamptz)
+returns text language plpgsql security definer set search_path = public as $$
+declare v_prefix text := 'NC-' || to_char(p_start at time zone private.tz(), 'YYYYMMDD') || '-'; v_n int;
+begin
+  select coalesce(max(substr(code, 13, 3)::int), 0) + 1 into v_n from public.bookings where code like v_prefix || '%';
+  return v_prefix || lpad(v_n::text, 3, '0');
+end $$;
+
+-- Chèn lịch hẹn và chi tiết dịch vụ (giá, tên tại thời điểm đặt – BR09)
+create or replace function private.insert_booking(
+  p_user_id uuid, p_name text, p_phone text, p_source public.booking_source, p_status public.booking_status,
+  p_service_ids bigint[], p_design_id bigint, p_start timestamptz, p_end timestamptz, p_note text, p_actor uuid)
+returns public.bookings language plpgsql security definer set search_path = public as $$
+declare b public.bookings;
+begin
+  if p_design_id is not null and not exists (select 1 from public.nail_designs where id = p_design_id and is_active) then
+    raise exception 'VALIDATION_ERROR';
+  end if;
+  insert into public.bookings (code, user_id, customer_name, customer_phone, source, design_id,
+                               start_at, end_at, total_price, status, note, created_by, handled_by)
+  values (private.next_booking_code(p_start), p_user_id, btrim(p_name), p_phone, p_source, p_design_id,
+          p_start, p_end,
+          (select coalesce(sum(price), 0) from public.services where id = any (p_service_ids)),
+          p_status, nullif(btrim(coalesce(p_note, '')), ''), p_actor,
+          case when p_source = 'store' then p_actor end)
+  returning * into b;
+
+  insert into public.booking_services (booking_id, service_id, service_name, price, duration_minutes)
+  select b.id, s.id, s.name, s.price, s.duration_minutes
+  from public.services s where s.id = any (p_service_ids);
+  return b;
+end $$;
+
+create or replace function private.booking_json(b public.bookings)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'id', b.id, 'code', b.code, 'status', b.status, 'source', b.source,
+    'customerName', b.customer_name, 'startAt', b.start_at, 'endAt', b.end_at,
+    'totalPrice', b.total_price, 'reason', b.reason,
+    'services', coalesce((select jsonb_agg(jsonb_build_object('serviceId', bs.service_id, 'name', bs.service_name, 'price', bs.price))
+                          from public.booking_services bs where bs.booking_id = b.id), '[]'::jsonb));
+$$;
+
 -- ================================================================ 1. get_free_slots (FR06, UC06)
 create or replace function public.get_free_slots(p_date date, p_service_ids bigint[] default null,
                                                  p_exclude_booking_id bigint default null)
@@ -128,7 +178,38 @@ begin
   return jsonb_build_object('date', p_date, 'totalMinutes', v_minutes, 'slots', v_slots);
 end $$;
 
+-- ================================================================ 2. create_booking (FR05, FR18, UC05)
+create or replace function public.create_booking(p_service_ids bigint[], p_design_id bigint,
+                                                 p_start_at timestamptz, p_note text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  me public.profiles;
+  v_minutes int;
+  v_end timestamptz;
+  b public.bookings;
+begin
+  if auth.uid() is null then raise exception 'NOT_AUTHENTICATED'; end if;
+  select * into me from public.profiles where id = auth.uid();
+  if me.id is null or me.is_locked then raise exception 'ACCOUNT_LOCKED'; end if;
+  if char_length(coalesce(p_note, '')) > 500 then raise exception 'VALIDATION_ERROR'; end if;
+
+  v_minutes := private.booking_minutes(p_service_ids);
+  v_end := p_start_at + make_interval(mins => v_minutes);
+
+  perform private.lock_day(p_start_at);
+  if (select count(*) from public.bookings
+       where user_id = me.id and status in ('pending', 'confirmed') and end_at > now()) >= 2 then
+    raise exception 'BOOKING_LIMIT';                                   -- BR05
+  end if;
+  perform private.assert_slot(p_start_at, v_end, null, true);
+
+  b := private.insert_booking(me.id, me.full_name, me.phone, 'online', 'pending',
+                              p_service_ids, p_design_id, p_start_at, v_end, p_note, me.id);
+  return private.booking_json(b);
+end $$;
+
 -- ================================================================ quyền gọi hàm
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_admin(), public.is_active_user() to anon, authenticated;
 grant execute on function public.get_free_slots(date, bigint[], bigint) to anon, authenticated;
+grant execute on function public.create_booking(bigint[], bigint, timestamptz, text) to authenticated;
