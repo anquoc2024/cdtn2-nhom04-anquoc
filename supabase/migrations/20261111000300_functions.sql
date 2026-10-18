@@ -225,9 +225,37 @@ begin
   return private.booking_json(b);
 end $$;
 
+-- ================================================================ 4. change_booking_status (FR13, FR14, BR06b, BR07, BR08)
+create or replace function public.change_booking_status(p_booking_id bigint, p_status public.booking_status,
+                                                        p_reason text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare b public.bookings; v_ok boolean;
+begin
+  perform private.require_admin();
+  select * into b from public.bookings where id = p_booking_id for update;
+  if b.id is null then raise exception 'NOT_FOUND'; end if;
+
+  v_ok := (b.status, p_status) in (('pending', 'confirmed'), ('pending', 'rejected'), ('pending', 'cancelled'),
+                                   ('confirmed', 'in_progress'), ('confirmed', 'cancelled'),
+                                   ('in_progress', 'completed'));
+  if not v_ok then raise exception 'INVALID_TRANSITION'; end if;
+  if p_status in ('rejected', 'cancelled') and char_length(btrim(coalesce(p_reason, ''))) = 0 then
+    raise exception 'REASON_REQUIRED';
+  end if;
+
+  update public.bookings
+     set status = p_status,
+         reason = case when p_status in ('rejected', 'cancelled') then left(btrim(p_reason), 300) else reason end,
+         handled_by = auth.uid(),
+         user_seen_at = null                                           -- FR23: dấu "Mới cập nhật"
+   where id = b.id returning * into b;
+  return private.booking_json(b) || jsonb_build_object('updatedAt', b.updated_at);
+end $$;
+
 -- ================================================================ quyền gọi hàm
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_admin(), public.is_active_user() to anon, authenticated;
 grant execute on function public.get_free_slots(date, bigint[], bigint) to anon, authenticated;
 grant execute on function public.create_booking(bigint[], bigint, timestamptz, text),
-                          public.cancel_my_booking(bigint, text) to authenticated;
+                          public.cancel_my_booking(bigint, text),
+                          public.change_booking_status(bigint, public.booking_status, text) to authenticated;
