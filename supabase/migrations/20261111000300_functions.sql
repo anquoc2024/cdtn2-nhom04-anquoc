@@ -252,10 +252,39 @@ begin
   return private.booking_json(b) || jsonb_build_object('updatedAt', b.updated_at);
 end $$;
 
+-- ================================================================ 5. admin_create_booking (FR20, UC18, BR13)
+create or replace function public.admin_create_booking(p_user_id uuid, p_customer_name text, p_customer_phone text,
+                                                       p_service_ids bigint[], p_design_id bigint,
+                                                       p_start_at timestamptz, p_note text default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_minutes int; v_end timestamptz; b public.bookings; v_name text := p_customer_name; v_phone text := p_customer_phone;
+begin
+  perform private.require_admin();
+  if p_user_id is not null then
+    select coalesce(nullif(btrim(v_name), ''), full_name), coalesce(nullif(v_phone, ''), phone)
+      into v_name, v_phone from public.profiles where id = p_user_id;
+    if not found then raise exception 'NOT_FOUND'; end if;
+  end if;
+  if char_length(btrim(coalesce(v_name, ''))) = 0 or coalesce(v_phone, '') !~ '^0[0-9]{9}$'
+     or char_length(coalesce(p_note, '')) > 500 then
+    raise exception 'VALIDATION_ERROR';
+  end if;
+
+  v_minutes := private.booking_minutes(p_service_ids);
+  v_end := p_start_at + make_interval(mins => v_minutes);
+  perform private.lock_day(p_start_at);
+  perform private.assert_slot(p_start_at, v_end, null, false);         -- không áp dụng BR04, BR05
+
+  b := private.insert_booking(p_user_id, v_name, v_phone, 'store', 'confirmed',
+                              p_service_ids, p_design_id, p_start_at, v_end, p_note, auth.uid());
+  return private.booking_json(b);
+end $$;
+
 -- ================================================================ quyền gọi hàm
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_admin(), public.is_active_user() to anon, authenticated;
 grant execute on function public.get_free_slots(date, bigint[], bigint) to anon, authenticated;
 grant execute on function public.create_booking(bigint[], bigint, timestamptz, text),
                           public.cancel_my_booking(bigint, text),
-                          public.change_booking_status(bigint, public.booking_status, text) to authenticated;
+                          public.change_booking_status(bigint, public.booking_status, text),
+                          public.admin_create_booking(uuid, text, text, bigint[], bigint, timestamptz, text) to authenticated;
