@@ -302,6 +302,39 @@ begin
   return private.booking_json(b) || jsonb_build_object('previousStartAt', v_old_start);
 end $$;
 
+-- ================================================================ 8. get_stats (FR15, UC15)
+create or replace function public.get_stats(p_from date, p_to date)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare v jsonb;
+begin
+  perform private.require_admin();
+  if p_from is null or p_to is null or p_from > p_to then raise exception 'INVALID_RANGE'; end if;
+
+  with b as (
+    select * from public.bookings
+     where (start_at at time zone private.tz())::date between p_from and p_to
+  )
+  select jsonb_build_object(
+    'totalBookings', (select count(*) from b),
+    'byStatus', (select coalesce(jsonb_object_agg(status, n), '{}'::jsonb)
+                   from (select status, count(*) n from b group by status) x),
+    'revenue', (select coalesce(sum(total_price), 0) from b where status = 'completed'),
+    'daily', (select coalesce(jsonb_agg(jsonb_build_object('date', d, 'count', n) order by d), '[]'::jsonb)
+                from (select (start_at at time zone private.tz())::date d, count(*) n from b group by 1) x),
+    'topServices', (select coalesce(jsonb_agg(jsonb_build_object('name', name, 'count', n, 'revenue', rev) order by n desc, rev desc), '[]'::jsonb)
+                      from (select bs.service_name name, count(*) n, sum(bs.price) rev
+                              from b join public.booking_services bs on bs.booking_id = b.id
+                             where b.status = 'completed'
+                             group by bs.service_name order by n desc, rev desc limit 5) x),
+    'topDesigns', (select coalesce(jsonb_agg(jsonb_build_object('name', name, 'count', n) order by n desc), '[]'::jsonb)
+                     from (select d.name, count(*) n
+                             from b join public.nail_designs d on d.id = b.design_id
+                            where b.status not in ('cancelled', 'rejected')
+                            group by d.name order by n desc limit 5) x)
+  ) into v;
+  return v;
+end $$;
+
 -- ================================================================ quyền gọi hàm
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_admin(), public.is_active_user() to anon, authenticated;
@@ -310,4 +343,5 @@ grant execute on function public.create_booking(bigint[], bigint, timestamptz, t
                           public.cancel_my_booking(bigint, text),
                           public.change_booking_status(bigint, public.booking_status, text),
                           public.admin_create_booking(uuid, text, text, bigint[], bigint, timestamptz, text),
-                          public.reschedule_booking(bigint, timestamptz) to authenticated;
+                          public.reschedule_booking(bigint, timestamptz),
+                          public.get_stats(date, date) to authenticated;
