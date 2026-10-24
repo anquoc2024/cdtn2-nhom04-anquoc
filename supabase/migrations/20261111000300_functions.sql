@@ -280,6 +280,28 @@ begin
   return private.booking_json(b);
 end $$;
 
+-- ================================================================ 6. reschedule_booking (FR22, UC20, BR15)
+create or replace function public.reschedule_booking(p_booking_id bigint, p_new_start_at timestamptz)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare b public.bookings; v_old_start timestamptz; v_old_end timestamptz; v_new_end timestamptz;
+begin
+  perform private.require_admin();
+  select * into b from public.bookings where id = p_booking_id for update;
+  if b.id is null then raise exception 'NOT_FOUND'; end if;
+  if b.status not in ('pending', 'confirmed') then raise exception 'INVALID_TRANSITION'; end if;
+
+  v_old_start := b.start_at; v_old_end := b.end_at;
+  v_new_end := p_new_start_at + (b.end_at - b.start_at);
+  perform private.lock_day(p_new_start_at);
+  perform private.assert_slot(p_new_start_at, v_new_end, b.id, false);
+
+  insert into public.booking_reschedules (booking_id, old_start_at, old_end_at, new_start_at, new_end_at, changed_by)
+  values (b.id, v_old_start, v_old_end, p_new_start_at, v_new_end, auth.uid());
+  update public.bookings set start_at = p_new_start_at, end_at = v_new_end, handled_by = auth.uid(), user_seen_at = null
+   where id = b.id returning * into b;
+  return private.booking_json(b) || jsonb_build_object('previousStartAt', v_old_start);
+end $$;
+
 -- ================================================================ quyền gọi hàm
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_admin(), public.is_active_user() to anon, authenticated;
@@ -287,4 +309,5 @@ grant execute on function public.get_free_slots(date, bigint[], bigint) to anon,
 grant execute on function public.create_booking(bigint[], bigint, timestamptz, text),
                           public.cancel_my_booking(bigint, text),
                           public.change_booking_status(bigint, public.booking_status, text),
-                          public.admin_create_booking(uuid, text, text, bigint[], bigint, timestamptz, text) to authenticated;
+                          public.admin_create_booking(uuid, text, text, bigint[], bigint, timestamptz, text),
+                          public.reschedule_booking(bigint, timestamptz) to authenticated;
