@@ -335,6 +335,15 @@ begin
   return v;
 end $$;
 
+-- ================================================================ hàm phụ: mark_booking_seen (FR23), set_user_locked (FR09, BR11, BR14)
+create or replace function public.mark_booking_seen(p_booking_id bigint)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'NOT_AUTHENTICATED'; end if;
+  update public.bookings set user_seen_at = now()
+   where id = p_booking_id and user_id = auth.uid() and user_seen_at is null;
+end $$;
+
 -- ================================================================ quyền gọi hàm
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_admin(), public.is_active_user() to anon, authenticated;
@@ -344,4 +353,5 @@ grant execute on function public.create_booking(bigint[], bigint, timestamptz, t
                           public.change_booking_status(bigint, public.booking_status, text),
                           public.admin_create_booking(uuid, text, text, bigint[], bigint, timestamptz, text),
                           public.reschedule_booking(bigint, timestamptz),
-                          public.get_stats(date, date) to authenticated;
+                          public.get_stats(date, date),
+                          public.mark_booking_seen(bigint) to authenticated;
