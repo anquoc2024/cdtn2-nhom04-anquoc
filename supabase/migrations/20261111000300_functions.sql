@@ -302,6 +302,24 @@ begin
   return private.booking_json(b) || jsonb_build_object('previousStartAt', v_old_start);
 end $$;
 
+-- ================================================================ 7. set_admin_role (FR09, BR14)
+create or replace function public.set_admin_role(p_user_id uuid, p_is_admin boolean)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare p public.profiles;
+begin
+  perform private.require_admin();
+  if p_user_id = auth.uid() then raise exception 'LAST_ADMIN'; end if;
+  select * into p from public.profiles where id = p_user_id for update;
+  if p.id is null then raise exception 'NOT_FOUND'; end if;
+  if not p_is_admin and p.role = 'admin' and
+     (select count(*) from public.profiles where role = 'admin' and not is_locked and id <> p_user_id) = 0 then
+    raise exception 'LAST_ADMIN';
+  end if;
+  update public.profiles set role = case when p_is_admin then 'admin'::public.user_role else 'user'::public.user_role end
+   where id = p_user_id returning * into p;
+  return jsonb_build_object('id', p.id, 'role', p.role);
+end $$;
+
 -- ================================================================ 8. get_stats (FR15, UC15)
 create or replace function public.get_stats(p_from date, p_to date)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
@@ -344,6 +362,22 @@ begin
    where id = p_booking_id and user_id = auth.uid() and user_seen_at is null;
 end $$;
 
+create or replace function public.set_user_locked(p_user_id uuid, p_locked boolean)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare p public.profiles;
+begin
+  perform private.require_admin();
+  if p_user_id = auth.uid() then raise exception 'LAST_ADMIN'; end if;
+  select * into p from public.profiles where id = p_user_id for update;
+  if p.id is null then raise exception 'NOT_FOUND'; end if;
+  if p_locked and p.role = 'admin' and
+     (select count(*) from public.profiles where role = 'admin' and not is_locked and id <> p_user_id) = 0 then
+    raise exception 'LAST_ADMIN';
+  end if;
+  update public.profiles set is_locked = p_locked where id = p_user_id returning * into p;
+  return jsonb_build_object('id', p.id, 'isLocked', p.is_locked);
+end $$;
+
 -- ================================================================ quyền gọi hàm
 revoke execute on all functions in schema public from public, anon;
 grant execute on function public.is_admin(), public.is_active_user() to anon, authenticated;
@@ -353,5 +387,7 @@ grant execute on function public.create_booking(bigint[], bigint, timestamptz, t
                           public.change_booking_status(bigint, public.booking_status, text),
                           public.admin_create_booking(uuid, text, text, bigint[], bigint, timestamptz, text),
                           public.reschedule_booking(bigint, timestamptz),
+                          public.set_admin_role(uuid, boolean),
                           public.get_stats(date, date),
-                          public.mark_booking_seen(bigint) to authenticated;
+                          public.mark_booking_seen(bigint),
+                          public.set_user_locked(uuid, boolean) to authenticated;
