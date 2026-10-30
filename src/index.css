@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-cream text-ink font-sans antialiased; }
+  h1, h2, h3 { @apply font-display text-plum; }
+  ::selection { @apply bg-rose-200 text-plum; }
+}
+
+@layer components {
+  .container-page { @apply mx-auto w-full max-w-6xl px-5 sm:px-8; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition
+         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-cream
+         disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-rose-500 text-white shadow-sm hover:bg-rose-600; }
+  .btn-dark { @apply btn bg-plum text-cream hover:bg-ink; }
+  .btn-outline { @apply btn border border-line bg-white text-plum hover:border-rose-200 hover:bg-rose-50; }
+  .btn-ghost { @apply btn px-3 text-ink-soft hover:bg-rose-50 hover:text-plum; }
+  .btn-danger { @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50; }
+  .btn-sm { @apply px-3.5 py-1.5 text-xs; }
+  .card { @apply rounded-2xl border border-line bg-white shadow-card; }
+  .label { @apply mb-1.5 block text-sm font-medium text-ink-soft; }
+  .input { @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-muted
+           focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100 disabled:bg-cream-deep; }
+  .input-error { @apply border-red-300 focus:border-red-400 focus:ring-red-100; }
+  .chip { @apply inline-flex items-center rounded-full border border-line bg-white px-3.5 py-1.5 text-sm text-ink-soft transition hover:border-rose-200 hover:text-plum; }
+  .chip-on { @apply border-plum bg-plum text-cream hover:border-plum hover:text-cream; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.18em] text-rose-500; }
+  .table-head { @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted; }
+  .table-cell { @apply px-4 py-3 align-top text-sm; }
+}
