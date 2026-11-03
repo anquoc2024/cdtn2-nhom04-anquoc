@@ -4,6 +4,7 @@ import { ToastProvider } from './components/ui'
 import SiteLayout from './components/layout/SiteLayout'
 import { RequireAdmin, RequireUser } from './components/layout/Guards'
 import HomePage from './pages/HomePage'
+import { LoginPage, RegisterPage } from './pages/AuthPages'
 import NotFoundPage from './pages/NotFoundPage'
 
 // Bản đồ màn hình: MH01 đăng nhập/đăng ký · MH02 dịch vụ · MH03 mẫu nail · MH04 đặt lịch · MH05 lịch hẹn của tôi
@@ -16,6 +17,8 @@ export default function App() {
           <Routes>
             <Route element={<SiteLayout />}>
               <Route index element={<HomePage />} />
+              <Route path="dang-nhap" element={<LoginPage />} />
+              <Route path="dang-ky" element={<RegisterPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
