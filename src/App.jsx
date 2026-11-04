@@ -4,6 +4,7 @@ import { ToastProvider } from './components/ui'
 import SiteLayout from './components/layout/SiteLayout'
 import { RequireAdmin, RequireUser } from './components/layout/Guards'
 import HomePage from './pages/HomePage'
+import ServicesPage from './pages/ServicesPage'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -17,6 +18,7 @@ export default function App() {
           <Routes>
             <Route element={<SiteLayout />}>
               <Route index element={<HomePage />} />
+              <Route path="dich-vu" element={<ServicesPage />} />
               <Route path="dang-nhap" element={<LoginPage />} />
               <Route path="dang-ky" element={<RegisterPage />} />
               <Route path="*" element={<NotFoundPage />} />
