@@ -5,6 +5,7 @@ import SiteLayout from './components/layout/SiteLayout'
 import { RequireAdmin, RequireUser } from './components/layout/Guards'
 import HomePage from './pages/HomePage'
 import ServicesPage from './pages/ServicesPage'
+import DesignsPage from './pages/DesignsPage'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -19,6 +20,7 @@ export default function App() {
             <Route element={<SiteLayout />}>
               <Route index element={<HomePage />} />
               <Route path="dich-vu" element={<ServicesPage />} />
+              <Route path="mau-nail" element={<DesignsPage />} />
               <Route path="dang-nhap" element={<LoginPage />} />
               <Route path="dang-ky" element={<RegisterPage />} />
               <Route path="*" element={<NotFoundPage />} />
