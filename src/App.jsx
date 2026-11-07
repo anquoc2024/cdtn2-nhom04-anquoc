@@ -8,6 +8,7 @@ import ServicesPage from './pages/ServicesPage'
 import DesignsPage from './pages/DesignsPage'
 import BookingPage from './pages/BookingPage'
 import BookingSuccessPage from './pages/BookingSuccessPage'
+import MyBookingsPage from './pages/MyBookingsPage'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -25,6 +26,7 @@ export default function App() {
               <Route path="mau-nail" element={<DesignsPage />} />
               <Route path="dat-lich" element={<BookingPage />} />
               <Route path="dat-lich/thanh-cong" element={<RequireUser><BookingSuccessPage /></RequireUser>} />
+              <Route path="lich-hen-cua-toi" element={<RequireUser><MyBookingsPage /></RequireUser>} />
               <Route path="dang-nhap" element={<LoginPage />} />
               <Route path="dang-ky" element={<RegisterPage />} />
               <Route path="*" element={<NotFoundPage />} />
