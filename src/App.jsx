@@ -14,6 +14,7 @@ import ProfilePage from './pages/ProfilePage'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
 import NotFoundPage from './pages/NotFoundPage'
 import AdminBookingsPage from './pages/admin/AdminBookingsPage'
+import AdminCreateBookingPage from './pages/admin/AdminCreateBookingPage'
 
 // Bản đồ màn hình: MH01 đăng nhập/đăng ký · MH02 dịch vụ · MH03 mẫu nail · MH04 đặt lịch · MH05 lịch hẹn của tôi
 // MH06–MH11 quản trị · MH12 hồ sơ cá nhân
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
               <Route index element={<Navigate to="lich-hen" replace />} />
               <Route path="lich-hen" element={<AdminBookingsPage />} />
+              <Route path="tao-lich" element={<AdminCreateBookingPage />} />
             </Route>
           </Routes>
         </ToastProvider>
