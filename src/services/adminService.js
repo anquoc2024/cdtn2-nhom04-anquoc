@@ -9,6 +9,30 @@ import { addDays, todayVN } from '../lib/format'
 const PAGE = 20
 const dayStart = (ymd) => `${ymd}T00:00:00+07:00`
 
+function serviceRow(d) {
+  const fields = check([
+    ['name', !isBlank(d.name) && d.name.trim().length <= 150, 'Nhập tên dịch vụ (tối đa 150 ký tự)'],
+    ['categoryId', !!d.categoryId, 'Chọn danh mục'],
+    ['durationMinutes', isDuration(d.durationMinutes), 'Thời lượng 15–240 phút, bội số 15'],
+    ['price', isPrice(d.price), 'Giá > 0, bội số 1.000đ'],
+  ])
+  if (Object.keys(fields).length) throw new AppError('VALIDATION_ERROR', fields)
+  return {
+    name: d.name.trim(), category_id: Number(d.categoryId), description: d.description?.trim() || null,
+    duration_minutes: Number(d.durationMinutes), price: Number(d.price), image_url: d.imageUrl || null,
+    is_active: d.isActive ?? true,
+  }
+}
+
+/** Xóa; nếu bị khóa ngoại chặn (đã có lịch hẹn) thì ẩn – BR10 */
+async function deleteOrHide(del, hide) {
+  const res = await del()
+  if (!res.error) return { deleted: true }
+  if (toCode(res.error) !== 'IN_USE') throw res.error
+  unwrap(await hide())
+  return { deleted: false, hidden: true }
+}
+
 export const adminService = {
   // ---------------------------------------------------------- lịch hẹn (FR13, FR14, FR20, FR22)
   getBookings: ({ date, status, q, page = 1 }) =>
@@ -64,5 +88,34 @@ export const adminService = {
   rescheduleBooking: (id, newStartAt) => attempt(async () => unwrap(await bookingRepo.reschedule(id, newStartAt))),
 
   findCustomerByPhone: (phone) => attempt(async () => camel(unwrap(await userRepo.findByPhone(phone.trim())))),
+
+  // ---------------------------------------------------------- dịch vụ (FR10, FR11)
+  getAllServices: () => attempt(async () => camel(unwrap(await catalogRepo.services({ all: true })))),
+  getServiceCategories: () => attempt(async () => camel(unwrap(await catalogRepo.serviceCategories(true)))),
+  createService: (d) => attempt(async () => camel(unwrap(await catalogRepo.insertService(serviceRow(d))))),
+  updateService: (id, d) =>
+    attempt(async () => {
+      const row = serviceRow(d)
+      delete row.price                                   // giá đổi qua updatePrice để ghi lịch sử
+      return camel(unwrap(await catalogRepo.updateService(id, row)))
+    }),
+  setServiceActive: (id, isActive) => attempt(async () => camel(unwrap(await catalogRepo.updateService(id, { is_active: isActive })))),
+  deleteService: (id) =>
+    attempt(() => deleteOrHide(() => catalogRepo.deleteService(id), () => catalogRepo.updateService(id, { is_active: false }))),
+  updatePrice: (id, oldPrice, newPrice) =>
+    attempt(async () => {
+      if (!isPrice(newPrice)) throw new AppError('INVALID_PRICE', { price: 'Giá > 0, bội số 1.000đ' })
+      const s = camel(unwrap(await catalogRepo.updateService(id, { price: Number(newPrice) })))
+      return { serviceId: id, oldPrice, newPrice: s.price, changedAt: s.updatedAt }
+    }),
+  getPriceHistory: (id) => attempt(async () => camel(unwrap(await catalogRepo.priceHistory(id)))),
+  saveServiceCategory: ({ id, name, sortOrder = 0, isActive = true }) =>
+    attempt(async () => {
+      if (isBlank(name)) throw new AppError('VALIDATION_ERROR', { name: 'Nhập tên danh mục' })
+      const row = { name: name.trim(), sort_order: Number(sortOrder) || 0, is_active: isActive }
+      return camel(unwrap(await (id ? catalogRepo.updateServiceCategory(id, row) : catalogRepo.insertServiceCategory(row))))
+    }),
+  deleteServiceCategory: (id) =>
+    attempt(() => deleteOrHide(() => catalogRepo.deleteServiceCategory(id), () => catalogRepo.updateServiceCategory(id, { is_active: false }))),
 
 }
