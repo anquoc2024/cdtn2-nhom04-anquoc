@@ -1,6 +1,7 @@
 import { bookingRepo } from '../repositories/bookingRepo'
 import { catalogRepo } from '../repositories/catalogRepo'
 import { userRepo } from '../repositories/userRepo'
+import { storageRepo } from '../repositories/storageRepo'
 import { attempt, unwrap, AppError, toCode } from './errors'
 import { camel } from './mapper'
 import { check, isBlank, isDuration, isPhone, isPrice } from '../lib/validators'
@@ -20,6 +21,21 @@ function serviceRow(d) {
   return {
     name: d.name.trim(), category_id: Number(d.categoryId), description: d.description?.trim() || null,
     duration_minutes: Number(d.durationMinutes), price: Number(d.price), image_url: d.imageUrl || null,
+    is_active: d.isActive ?? true,
+  }
+}
+
+function designRow(d) {
+  const fields = check([
+    ['name', !isBlank(d.name), 'Nhập tên mẫu'],
+    ['categoryId', !!d.categoryId, 'Chọn danh mục mẫu'],
+    ['imageUrl', !isBlank(d.imageUrl), 'Tải ảnh mẫu lên'],
+    ['referencePrice', d.referencePrice === '' || d.referencePrice == null || Number(d.referencePrice) >= 0, 'Giá tham khảo không âm'],
+  ])
+  if (Object.keys(fields).length) throw new AppError('VALIDATION_ERROR', fields)
+  return {
+    name: d.name.trim(), category_id: Number(d.categoryId), description: d.description?.trim() || null,
+    image_url: d.imageUrl, reference_price: d.referencePrice === '' || d.referencePrice == null ? null : Number(d.referencePrice),
     is_active: d.isActive ?? true,
   }
 }
@@ -117,5 +133,37 @@ export const adminService = {
     }),
   deleteServiceCategory: (id) =>
     attempt(() => deleteOrHide(() => catalogRepo.deleteServiceCategory(id), () => catalogRepo.updateServiceCategory(id, { is_active: false }))),
+
+  // ---------------------------------------------------------- mẫu nail (FR12)
+  getAllDesigns: () => attempt(async () => camel(unwrap(await catalogRepo.designs({ all: true })))),
+  getDesignCategories: () => attempt(async () => camel(unwrap(await catalogRepo.designCategories()))),
+  saveDesign: (id, d, serviceIds = []) =>
+    attempt(async () => {
+      const row = designRow(d)
+      const saved = camel(unwrap(await (id ? catalogRepo.updateDesign(id, row) : catalogRepo.insertDesign(row))))
+      unwrap(await catalogRepo.setDesignServices(saved.id, serviceIds))
+      return saved
+    }),
+  setDesignActive: (id, isActive) => attempt(async () => camel(unwrap(await catalogRepo.updateDesign(id, { is_active: isActive })))),
+  deleteDesign: (id) =>
+    attempt(() => deleteOrHide(() => catalogRepo.deleteDesign(id), () => catalogRepo.updateDesign(id, { is_active: false }))),
+  uploadImage: (file) =>
+    attempt(async () => {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file?.type)) throw new AppError('VALIDATION_ERROR', { image: 'Chỉ nhận JPG, PNG, WebP' })
+      if (file.size > 5 * 1024 * 1024) throw new AppError('VALIDATION_ERROR', { image: 'Ảnh tối đa 5 MB' })
+      const ext = file.name.split('.').pop().toLowerCase()
+      return unwrap(await storageRepo.upload(`uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`, file))
+    }),
+  saveDesignCategory: ({ id, name }) =>
+    attempt(async () => {
+      if (isBlank(name)) throw new AppError('VALIDATION_ERROR', { name: 'Nhập tên danh mục' })
+      return camel(unwrap(await (id ? catalogRepo.updateDesignCategory(id, { name: name.trim() }) : catalogRepo.insertDesignCategory({ name: name.trim() }))))
+    }),
+  deleteDesignCategory: (id) =>
+    attempt(async () => {
+      const res = await catalogRepo.deleteDesignCategory(id)
+      if (res.error) throw toCode(res.error) === 'IN_USE' ? new AppError('IN_USE') : res.error   // BR10: danh mục còn mẫu
+      return true
+    }),
 
 }
