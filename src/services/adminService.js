@@ -166,4 +166,20 @@ export const adminService = {
       return true
     }),
 
+  // ---------------------------------------------------------- người dùng (FR09)
+  getUsers: ({ q, status, page = 1 }) =>
+    attempt(async () => {
+      const { data, error, count } = await userRepo.list({ q: q?.trim(), status, page, limit: PAGE })
+      if (error) throw error
+      return { items: camel(data), page, limit: PAGE, total: count ?? 0 }
+    }),
+  getUserBookings: (userId) => attempt(async () => camel(unwrap(await bookingRepo.byUser(userId)))),
+  updateUser: (id, { fullName, phone }) =>
+    attempt(async () => {
+      const fields = check([['fullName', !isBlank(fullName), 'Nhập họ tên'], ['phone', isPhone(phone), 'SĐT gồm 10 số, bắt đầu bằng 0']])
+      if (Object.keys(fields).length) throw new AppError('VALIDATION_ERROR', fields)
+      return camel(unwrap(await userRepo.update(id, { full_name: fullName.trim(), phone: phone.trim() })))
+    }),
+  setLocked: (id, locked) => attempt(async () => unwrap(await userRepo.setLocked(id, locked))),
+  setAdminRole: (id, isAdmin) => attempt(async () => unwrap(await userRepo.setAdmin(id, isAdmin))),
 }
