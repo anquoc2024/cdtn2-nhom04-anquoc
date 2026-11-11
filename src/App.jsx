@@ -19,6 +19,7 @@ import AdminServicesPage from './pages/admin/AdminServicesPage'
 import AdminDesignsPage from './pages/admin/AdminDesignsPage'
 import AdminBlockedPage from './pages/admin/AdminBlockedPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
+import AdminStatsPage from './pages/admin/AdminStatsPage'
 
 // Bản đồ màn hình: MH01 đăng nhập/đăng ký · MH02 dịch vụ · MH03 mẫu nail · MH04 đặt lịch · MH05 lịch hẹn của tôi
 // MH06–MH11 quản trị · MH12 hồ sơ cá nhân
@@ -48,6 +49,7 @@ export default function App() {
               <Route path="mau-nail" element={<AdminDesignsPage />} />
               <Route path="chan-lich" element={<AdminBlockedPage />} />
               <Route path="nguoi-dung" element={<AdminUsersPage />} />
+              <Route path="thong-ke" element={<AdminStatsPage />} />
             </Route>
           </Routes>
         </ToastProvider>
