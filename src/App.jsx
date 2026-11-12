@@ -7,6 +7,7 @@ import { RequireAdmin, RequireUser } from './components/layout/Guards'
 import HomePage from './pages/HomePage'
 import ServicesPage from './pages/ServicesPage'
 import DesignsPage from './pages/DesignsPage'
+import AboutPage from './pages/AboutPage'
 import BookingPage from './pages/BookingPage'
 import BookingSuccessPage from './pages/BookingSuccessPage'
 import MyBookingsPage from './pages/MyBookingsPage'
@@ -34,6 +35,7 @@ export default function App() {
               <Route index element={<HomePage />} />
               <Route path="dich-vu" element={<ServicesPage />} />
               <Route path="mau-nail" element={<DesignsPage />} />
+              <Route path="gioi-thieu" element={<AboutPage />} />
               <Route path="dat-lich" element={<BookingPage />} />
               <Route path="dat-lich/thanh-cong" element={<RequireUser><BookingSuccessPage /></RequireUser>} />
               <Route path="lich-hen-cua-toi" element={<RequireUser><MyBookingsPage /></RequireUser>} />

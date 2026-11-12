@@ -26,6 +26,7 @@ export default function SiteLayout() {
   const links = [
     { to: '/dich-vu', label: 'Dịch vụ & bảng giá' },
     { to: '/mau-nail', label: 'Mẫu nail' },
+    { to: '/gioi-thieu', label: 'Giới thiệu' },
     ...(user && !isAdmin ? [{ to: '/lich-hen-cua-toi', label: 'Lịch hẹn của tôi', badge: updated }] : []),
   ]
   const navCls = ({ isActive }) => `relative rounded-full px-3.5 py-2 text-sm transition ${isActive ? 'bg-rose-50 font-semibold text-plum' : 'text-ink-soft hover:text-plum'}`
@@ -92,6 +93,7 @@ export default function SiteLayout() {
             <p className="flex gap-2"><Clock className="h-4 w-4 shrink-0 text-gold-300" />{store ? `${store.openTime.slice(0, 5)} – ${store.closeTime.slice(0, 5)}` : ''}</p>
             {store?.closedWeekdays?.length > 0 && <p className="text-cream/60">Nghỉ: {store.closedWeekdays.map((d) => WEEKDAYS[d]).join(', ')}</p>}
             <p className="text-cream/60">Quên mật khẩu? Gọi tiệm để được hỗ trợ.</p>
+            <p className="flex gap-3 pt-1"><Link to="/gioi-thieu#lien-he" className="hover:text-cream">Liên hệ</Link><Link to="/gioi-thieu#hoi-dap" className="hover:text-cream">Câu hỏi thường gặp</Link></p>
           </div>
         </div>
         <div className="border-t border-white/10 py-5 text-center text-xs text-cream/50">© {new Date().getFullYear()} {store?.storeName ?? 'Thủy Nail'} · NailCare</div>

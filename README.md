@@ -28,6 +28,7 @@ public/designs/                           Hình minh họa cho 12 mẫu nail tro
 | MH01 Đăng nhập / Đăng ký | `/dang-nhap`, `/dang-ky` | UC01, UC02 |
 | MH02 Dịch vụ và bảng giá | `/`, `/dich-vu` | UC03 |
 | MH03 Mẫu nail | `/mau-nail` | UC04 |
+| Trang tĩnh: Giới thiệu, Liên hệ, Câu hỏi thường gặp | `/gioi-thieu` | UC16 (FR16) |
 | MH04 Đặt lịch | `/dat-lich` | UC05, UC06 |
 | MH05 Lịch hẹn của tôi | `/lich-hen-cua-toi` | UC07, UC08 |
 | MH12 Hồ sơ cá nhân | `/tai-khoan` | UC19 |
