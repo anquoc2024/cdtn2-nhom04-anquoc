@@ -59,6 +59,7 @@ Cần Node.js 20 trở lên.
 ```bash
 npm test                                   # kiểm thử đơn vị lớp Service (Vitest)
 bash supabase/tests/run_local.sh           # kiểm thử hàm SQL trên PostgreSQL 16 (cần psql)
+bash supabase/tests/20_concurrency.sh 20   # 20 phiên đặt cùng một khung giờ (NFR04), chạy sau lệnh trên
 ```
 
 `supabase/tests/10_business_rules.sql` kiểm tra BR03–BR15: hết chỗ, giới hạn 2 lịch, hủy trước 2 giờ, vòng đời trạng thái, dời lịch, chặn ngày, khóa tài khoản, quyền quản trị, và người dùng không đọc/sửa được lịch của người khác.
