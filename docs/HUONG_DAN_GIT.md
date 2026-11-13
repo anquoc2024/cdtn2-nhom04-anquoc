@@ -36,13 +36,13 @@ Thay `<khai>` bằng tài khoản GitHub của Khải.
 ```bash
 git clone https://github.com/<khai>/nailcare.git
 cd nailcare
-git config user.name  "Họ và tên như trong Communication Plan"
-git config user.email "email trường như trong Communication Plan"
+git config user.name  "Họ và tên đầy đủ"
+git config user.email "email đã gắn với tài khoản GitHub của mình"
 git switch rasphone          # thay bằng nhánh của mình: quoc, khai, rasphone, mingbouppha
 npm install
 ```
 
-Email phải trùng với một email đã thêm vào tài khoản GitHub của mình (Settings → Emails), để commit hiện đúng tên người làm.
+Email phải trùng với một email đã xác minh trong tài khoản GitHub của mình (Settings → Emails), để commit hiện đúng tên người làm. Bảng email commit của từng thành viên nằm trong Configuration Management Plan v1.0 của nhóm.
 
 ## 3. Mỗi lần làm việc
 
