@@ -66,9 +66,18 @@ select '4d reject #2 with reason', tst.try($q$ select change_booking_status(2,'r
 select '4e rejected->confirmed', tst.try($q$ select change_booking_status(2,'confirmed')::text $q$);
 select '4f reschedule #1 to d2 14:00', tst.try($q$ select reschedule_booking(1, tst.at('d2','14:00')::timestamptz)->>'code' $q$);
 select '4g reschedule rejected #2', tst.try($q$ select reschedule_booking(2, tst.at('d2','14:00')::timestamptz)::text $q$);
+-- BUG-02: 4h cần giờ hẹn ngay sau giờ hiện tại; nếu chạy ngoài 08:00 – 20:00 thì giờ đó nằm ngoài giờ mở cửa.
+-- Mở rộng tạm giờ mở cửa 00:00 – 23:59 cho riêng bước 4h, sau đó trả lại giờ cũ, để kết quả không phụ thuộc giờ chạy.
+reset role;
+insert into tst.ids select 'open', open_time::text from store_settings where id = 1;
+insert into tst.ids select 'close', close_time::text from store_settings where id = 1;
+update store_settings set open_time = '00:00', close_time = '23:59' where id = 1;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 select '4h admin booking for An soon', tst.try($q$ select (admin_create_booking('00000000-0000-0000-0000-00000000000b',null,null,array[8],null,
    (date_trunc('hour', now() at time zone 'Asia/Ho_Chi_Minh') + interval '1 hour') at time zone 'Asia/Ho_Chi_Minh'))->>'id' $q$);
 reset role;
+update store_settings set open_time = (select v from tst.ids where k = 'open')::time,
+                          close_time = (select v from tst.ids where k = 'close')::time where id = 1;
 set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select '4i An unseen badge count', count(*) from bookings where user_seen_at is null and status <> 'pending';
 select '4j An cancels soon booking', tst.try($q$ select cancel_my_booking((select max(id) from bookings where user_id=auth.uid()), 'bận')::text $q$);
