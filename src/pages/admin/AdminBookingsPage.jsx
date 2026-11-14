@@ -16,8 +16,10 @@ const NEXT = {
 export default function AdminBookingsPage() {
   const toast = useToast()
   const [params, setParams] = useSearchParams()
-  const date = params.get('ngay') ?? todayVN()
-  const status = params.get('trangthai') ?? ''
+  // Mở trang không kèm bộ lọc → mặc định Chờ xác nhận, mọi ngày (US13 AC1, UC13 bước 3; BUG-06)
+  const fresh = !params.has('ngay') && !params.has('trangthai')
+  const date = params.get('ngay') ?? (fresh ? 'all' : todayVN())
+  const status = params.get('trangthai') ?? (fresh ? 'pending' : '')
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const [summary, setSummary] = useState(null)
@@ -31,6 +33,7 @@ export default function AdminBookingsPage() {
     adminService.getBookingSummary().then((r) => setSummary(r.data))
   }
   useEffect(load, [date, status, page]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (fresh) setParams({ ngay: 'all', trangthai: 'pending' }, { replace: true }) }, [fresh]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function quick(b, to) {
     const r = await adminService.changeStatus(b.id, to)
